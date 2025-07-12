@@ -4,7 +4,7 @@ import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 
 // Pages
 import Landing from './pages/Landing';
-import PricingPage from './pages/Pricing';
+import Pricing from './pages/Pricing'; // ✅ File is correctly named Pricing.jsx
 import Dashboard from './pages/Dashboard';
 
 // Components
@@ -15,7 +15,7 @@ export default function App() {
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<Landing />} />
-      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/pricing" element={<Pricing />} />
 
       {/* Protected Routes */}
       <Route
@@ -43,4 +43,3 @@ export default function App() {
     </Routes>
   );
 }
-
