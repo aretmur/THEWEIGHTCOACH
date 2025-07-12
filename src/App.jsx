@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 import Landing from './pages/Landing';
-import Pricing from './pages/Pricing'; // not built yet—you can reuse `PricingPlans.jsx` inside it
+import Pricing from './pages/pricing.jsx';
 import Dashboard from './pages/Dashboard'; // placeholder
 import OnboardingFlow from './components/OnboardingFlow'; // already exists
 
