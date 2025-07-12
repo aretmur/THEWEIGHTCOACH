@@ -1,76 +1,165 @@
 // src/components/PricingPlans.jsx
 
-import { useState } from 'react';
-import { useAuth } from '@clerk/clerk-react';
+import React, { useState } from 'react';
+import { useUser, useAuth } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
+import MainDisclaimer from '../legal/MainDisclaimer';
 
 const plans = [
   {
-    name: 'Starter',
-    price: '29',
-    desc: 'Basic AI coach with daily check-ins',
-    features: ['AI-generated meal plans', 'Calorie/macro tracking', 'Weekly progress review'],
-    planId: 'starter',
+    id: 'starter',
+    name: 'Starter Plan',
+    price: 'A$29',
+    priceId: import.meta.env.VITE_STARTER_PRICE_ID,
+    interval: 'month',
+    features: [
+      'AI-generated meal plans',
+      'Calorie & macro tracking',
+      'Weekly progress reports',
+    ],
+    recommended: false,
   },
   {
-    name: 'Pro',
-    price: '59',
-    desc: 'Advanced plan for serious transformation',
-    features: ['Everything in Starter', '+ 1:1 AI coach chat', '+ Exercise generation', '+ Habit tracking'],
-    planId: 'pro',
+    id: 'professional',
+    name: 'Professional Plan',
+    price: 'A$49',
+    priceId: import.meta.env.VITE_PROFESSIONAL_PRICE_ID,
+    interval: 'month',
+    features: [
+      'Everything in Starter',
+      '1:1 live AI coach chat',
+      'Daily exercise generator',
+      'Habit & mobility tracking',
+    ],
+    recommended: true,
   },
 ];
 
 export default function PricingPlans() {
-  const { getToken } = useAuth();
-  const [loading, setLoading] = useState(null);
+  const { isSignedIn, isLoaded } = useAuth();
+  const { user } = useUser();
+  const navigate = useNavigate();
 
-  async function handleCheckout(plan) {
-    setLoading(plan.planId);
-    const token = await getToken();
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-    const res = await fetch('/api/create-checkout-session', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        planId: plan.planId,
-        email: 'demo@example.com', // Replace with actual Clerk user email if needed
-        countryCode: 'US', // In future: detect from user
-      }),
-    });
+  const beginSubscribe = (plan) => {
+    setSelectedPlan(plan);
+    localStorage.setItem('selectedPlan', JSON.stringify(plan));
+    setShowDisclaimer(true);
+  };
 
-    const data = await res.json();
-    if (data?.url) window.location.href = data.url;
-    setLoading(null);
-  }
+  const cancelDisclaimer = () => {
+    setShowDisclaimer(false);
+    setSelectedPlan(null);
+    localStorage.removeItem('selectedPlan');
+  };
+
+  const acceptDisclaimer = async () => {
+    setShowDisclaimer(false);
+    if (!isLoaded || !selectedPlan) return;
+
+    if (isSignedIn) {
+      // Proceed to Stripe checkout
+      try {
+        setLoading(true);
+        const res = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            priceId: selectedPlan.priceId,
+            userId: user?.id,
+            userEmail: user?.emailAddresses?.[0]?.emailAddress,
+          }),
+        });
+
+        const { url } = await res.json();
+        if (url) {
+          window.location.href = url;
+        } else {
+          throw new Error('No URL from session response');
+        }
+      } catch (err) {
+        console.error('Checkout error:', err);
+        alert('Something went wrong during the checkout process.');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Redirect to signup
+      navigate('/signup', {
+        state: {
+          redirectReason: 'subscription',
+          planName: selectedPlan.name,
+          planId: selectedPlan.id,
+          priceId: selectedPlan.priceId,
+        },
+      });
+    }
+  };
 
   return (
-    <div className="max-w-6xl mx-auto py-20 px-6">
+    <section className="max-w-6xl mx-auto py-20 px-6" id="plans">
       <h2 className="text-4xl font-extrabold text-center mb-12">Choose Your Plan</h2>
-      <div className="grid md:grid-cols-2 gap-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         {plans.map((plan) => (
-          <div key={plan.planId} className="border rounded-xl p-6 shadow hover:shadow-md">
-            <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
-            <p className="text-green-600 text-3xl font-semibold mb-4">${plan.price}/mo</p>
-            <p className="text-gray-600 mb-4">{plan.desc}</p>
-            <ul className="mb-6 space-y-2 text-gray-700">
-              {plan.features.map((feat, i) => (
-                <li key={i}>✅ {feat}</li>
+          <div
+            key={plan.id}
+            className={`border rounded-xl p-6 shadow ${
+              plan.recommended
+                ? 'ring-2 ring-blue-600 scale-105'
+                : 'hover:shadow-lg transition'
+            } relative`}
+          >
+            {plan.recommended && (
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 transform">
+                <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-medium">Most Popular</span>
+              </div>
+            )}
+            <h3 className="text-2xl font-semibold mb-2">{plan.name}</h3>
+            <p className="text-blue-700 text-3xl font-bold mb-1">{plan.price}</p>
+            <p className="text-gray-500 mb-4 text-sm">per {plan.interval}</p>
+
+            <ul className="text-gray-700 mb-6 space-y-2 text-sm">
+              {plan.features.map((feature, idx) => (
+                <li key={idx}>✅ {feature}</li>
               ))}
             </ul>
+
             <button
-              disabled={loading === plan.planId}
-              onClick={() => handleCheckout(plan)}
-              className="bg-green-600 text-white px-5 py-3 rounded-lg w-full font-semibold hover:bg-green-700"
+              onClick={() => beginSubscribe(plan)}
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-medium"
             >
-              {loading === plan.planId ? 'Redirecting...' : 'Subscribe'}
+              {loading && selectedPlan?.id === plan.id
+                ? 'Processing...'
+                : 'Subscribe'}
             </button>
+
+            {!isSignedIn && (
+              <p className="text-xs text-center text-gray-500 mt-2">
+                You'll be asked to sign up first
+              </p>
+            )}
           </div>
         ))}
       </div>
-    </div>
+
+      {showDisclaimer && (
+        <MainDisclaimer
+          userEmail={user?.emailAddresses?.[0]?.emailAddress}
+          onAccept={acceptDisclaimer}
+          onCancel={cancelDisclaimer}
+        />
+      )}
+
+      <div className="text-center mt-12 text-sm text-gray-500">
+        Secure payment • Cancel anytime
+      </div>
+    </section>
   );
 }
 
