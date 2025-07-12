@@ -1,74 +1,77 @@
-import { useState, useEffect } from 'react'
-import { getCountryFromIP } from '@/lib/geoPricing'
-import { useUser, useAuth, useSignIn } from '@clerk/clerk-react'
-import { useNavigate } from 'react-router-dom'
+// src/components/PricingPlans.jsx
 
-const regions = {
-  US: { currency: '$', starter: 24.99, pro: 39.99 },
-  AU: { currency: 'AUD $', starter: 29, pro: 49 },
-  IN: { currency: '₹', starter: 2000, pro: 2800 },
-  // add others
-}
+import { useState } from 'react';
+import { useAuth } from '@clerk/clerk-react';
+
+const plans = [
+  {
+    name: 'Starter',
+    price: '29',
+    desc: 'Basic AI coach with daily check-ins',
+    features: ['AI-generated meal plans', 'Calorie/macro tracking', 'Weekly progress review'],
+    planId: 'starter',
+  },
+  {
+    name: 'Pro',
+    price: '59',
+    desc: 'Advanced plan for serious transformation',
+    features: ['Everything in Starter', '+ 1:1 AI coach chat', '+ Exercise generation', '+ Habit tracking'],
+    planId: 'pro',
+  },
+];
 
 export default function PricingPlans() {
-  const [countryCode, setCountryCode] = useState('US')
-  const [prices, setPrices] = useState(regions['US'])
-  const [loading, setLoading] = useState(true)
+  const { getToken } = useAuth();
+  const [loading, setLoading] = useState(null);
 
-  const { isSignedIn } = useAuth()
-  const { user } = useUser()
-  const { signIn } = useSignIn()
-  const navigate = useNavigate()
+  async function handleCheckout(plan) {
+    setLoading(plan.planId);
+    const token = await getToken();
 
-  useEffect(() => {
-    getCountryFromIP().then(cc => {
-      setCountryCode(cc)
-      setPrices(regions[cc] || regions['US'])
-      setLoading(false)
-    })
-  }, [])
-
-  if (loading) return <p>Loading geo pricing...</p>
-
-  const handleStart = async (planId) => {
-    if (!isSignedIn) {
-      signIn.open({
-        redirectUrl: `/pricing?plan=${planId}`,
-        afterSignInUrl: `/pricing?plan=${planId}`
-      })
-      return
-    }
-
-    const priceReq = await fetch('/api/create-checkout-session', {
+    const res = await fetch('/api/create-checkout-session', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
-        planId,
-        userId: user.id,
-        email: user.primaryEmailAddress.emailAddress,
-        countryCode
-      })
-    })
-    const { url } = await priceReq.json()
-    if (url) window.location.href = url
+        planId: plan.planId,
+        email: 'demo@example.com', // Replace with actual Clerk user email if needed
+        countryCode: 'US', // In future: detect from user
+      }),
+    });
+
+    const data = await res.json();
+    if (data?.url) window.location.href = data.url;
+    setLoading(null);
   }
 
   return (
-    <div>
-      <h2 className="text-3xl font-bold">Choose your plan ({countryCode})</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8">
-        <div className="bg-white shadow rounded p-6">
-          <h3 className="text-xl font-semibold">Starter</h3>
-          <p className="text-lg">{prices.currency}{prices.starter} /month</p>
-          <button onClick={() => handleStart('starter')} className="mt-4 btn-primary">Start Starter</button>
-        </div>
-        <div className="bg-white shadow rounded p-6 border-2 border-indigo-500">
-          <h3 className="text-xl font-semibold">Pro</h3>
-          <p className="text-lg">{prices.currency}{prices.pro} /month</p>
-          <button onClick={() => handleStart('pro')} className="mt-4 btn-primary">Start Pro</button>
-        </div>
+    <div className="max-w-6xl mx-auto py-20 px-6">
+      <h2 className="text-4xl font-extrabold text-center mb-12">Choose Your Plan</h2>
+      <div className="grid md:grid-cols-2 gap-12">
+        {plans.map((plan) => (
+          <div key={plan.planId} className="border rounded-xl p-6 shadow hover:shadow-md">
+            <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+            <p className="text-green-600 text-3xl font-semibold mb-4">${plan.price}/mo</p>
+            <p className="text-gray-600 mb-4">{plan.desc}</p>
+            <ul className="mb-6 space-y-2 text-gray-700">
+              {plan.features.map((feat, i) => (
+                <li key={i}>✅ {feat}</li>
+              ))}
+            </ul>
+            <button
+              disabled={loading === plan.planId}
+              onClick={() => handleCheckout(plan)}
+              className="bg-green-600 text-white px-5 py-3 rounded-lg w-full font-semibold hover:bg-green-700"
+            >
+              {loading === plan.planId ? 'Redirecting...' : 'Subscribe'}
+            </button>
+          </div>
+        ))}
       </div>
     </div>
-  )
+  );
 }
+
   
