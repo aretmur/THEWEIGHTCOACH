@@ -5,7 +5,11 @@ yarn.lock
 package-lock.json
 
 # Build output
-dist/
+
+/dist/*
+!dist/index.html
+!dist/assets/
+
 dist-ssr/
 out/
 .next/
