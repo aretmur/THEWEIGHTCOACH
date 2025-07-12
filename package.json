@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.33.0",
-    "@supabase/supabase-js": "^2.50.4",
+    "@stripe/stripe-js": "^7.4.0",
+    "@supabase/supabase-js": "^2.50.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.3",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
